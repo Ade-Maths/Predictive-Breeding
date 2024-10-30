@@ -1,0 +1,58 @@
+# Load required packages (install if necessary)
+if(!require(dplyr)) install.packages("dplyr")
+library(dplyr)
+
+# Load data (replace with your actual file path)
+genotype_data <- read.csv("genotypes_P3.csv")
+
+# Drop the first column if it's an index
+genotype_data <- genotype_data[ , -1]
+
+# Initialize vectors to store results for each locus
+allele_freqs <- list()
+observed_heterozygosities <- numeric()
+expected_heterozygosities <- numeric()
+f_statistics <- numeric()
+
+# Loop through each locus (each column in the dataset)
+for (locus in colnames(genotype_data)) {
+  # Count genotypes (0 = homozygous for one allele, 1 = heterozygous, 2 = homozygous for other allele)
+  counts <- table(genotype_data[[locus]])
+  n_0 <- ifelse("0" %in% names(counts), counts["0"], 0)  # homozygous for one allele
+  n_1 <- ifelse("1" %in% names(counts), counts["1"], 0)  # heterozygous
+  n_2 <- ifelse("2" %in% names(counts), counts["2"], 0)  # homozygous for other allele
+  n_total <- n_0 + n_1 + n_2
+
+  # Calculate allele frequencies
+  p <- (2 * n_0 + n_1) / (2 * n_total)  # frequency of one allele
+  q <- 1 - p  # frequency of the other allele
+  allele_freqs[[locus]] <- c(p, q)
+
+  # Observed heterozygosity (proportion of heterozygous individuals)
+  observed_heterozygosity <- n_1 / n_total
+  observed_heterozygosities <- c(observed_heterozygosities, observed_heterozygosity)
+
+  # Expected heterozygosity (based on HWE: 2 * p * q)
+  expected_heterozygosity <- 2 * p * q
+  expected_heterozygosities <- c(expected_heterozygosities, expected_heterozygosity)
+
+  # F-statistic: F = 1 - (observed heterozygosity / expected heterozygosity)
+  if (expected_heterozygosity > 0) {
+    f_statistic <- 1 - (observed_heterozygosity / expected_heterozygosity)
+  } else {
+    f_statistic <- NA  # Undefined if expected heterozygosity is 0
+  }
+  f_statistics <- c(f_statistics, f_statistic)
+}
+
+# Combine results into a data frame
+results_df <- data.frame(
+  Locus = colnames(genotype_data),
+  Allele_Frequencies = sapply(allele_freqs, paste, collapse = ", "),
+  Observed_Heterozygosity = observed_heterozygosities,
+  Expected_Heterozygosity = expected_heterozygosities,
+  F_Statistic = f_statistics
+)
+
+# Display the results
+print(head(results_df, 10))
